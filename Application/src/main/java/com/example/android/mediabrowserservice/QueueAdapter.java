@@ -16,7 +16,7 @@
 package com.example.android.mediabrowserservice;
 
 import android.app.Activity;
-import android.media.session.MediaSession;
+import android.support.v4.media.session.MediaSessionCompat;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,13 +29,13 @@ import java.util.ArrayList;
 /**
  * A list adapter for items in a queue
  */
-public class QueueAdapter extends ArrayAdapter<MediaSession.QueueItem> {
+public class QueueAdapter extends ArrayAdapter<MediaSessionCompat.QueueItem> {
 
     // The currently selected/active queue item Id.
-    private long mActiveQueueItemId = MediaSession.QueueItem.UNKNOWN_ID;
+    private long mActiveQueueItemId = MediaSessionCompat.QueueItem.UNKNOWN_ID;
 
     public QueueAdapter(Activity context) {
-        super(context, R.layout.media_list_item, new ArrayList<MediaSession.QueueItem>());
+        super(context, R.layout.media_list_item, new ArrayList<MediaSessionCompat.QueueItem>());
     }
 
     public void setActiveQueueItemId(long id) {
@@ -63,7 +63,7 @@ public class QueueAdapter extends ArrayAdapter<MediaSession.QueueItem> {
             holder = (ViewHolder) convertView.getTag();
         }
 
-        MediaSession.QueueItem item = getItem(position);
+        MediaSessionCompat.QueueItem item = getItem(position);
         holder.mTitleView.setText(item.getDescription().getTitle());
         if (item.getDescription().getDescription() != null) {
             holder.mDescriptionView.setText(item.getDescription().getDescription());

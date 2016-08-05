@@ -20,17 +20,19 @@ package com.example.android.mediabrowserservice;
  import android.content.Context;
  import android.content.Intent;
  import android.graphics.Bitmap;
- import android.media.MediaDescription;
- import android.media.MediaMetadata;
- import android.media.browse.MediaBrowser.MediaItem;
- import android.media.session.MediaSession;
- import android.media.session.PlaybackState;
  import android.net.Uri;
  import android.os.Bundle;
  import android.os.Handler;
  import android.os.Message;
  import android.os.SystemClock;
- import android.service.media.MediaBrowserService;
+ import android.support.annotation.NonNull;
+ import android.support.v4.media.MediaBrowserCompat;
+ import android.support.v4.media.MediaBrowserServiceCompat;
+ import android.support.v4.media.MediaDescriptionCompat;
+ import android.support.v4.media.MediaMetadataCompat;
+ import android.support.v4.media.session.MediaSessionCompat;
+ import android.support.v4.media.session.PlaybackStateCompat;
+ import android.support.v4.media.MediaBrowserCompat.MediaItem;
  import android.text.TextUtils;
 
  import com.example.android.mediabrowserservice.model.MusicProvider;
@@ -50,9 +52,9 @@ package com.example.android.mediabrowserservice;
 
  /**
   * This class provides a MediaBrowser through a service. It exposes the media library to a browsing
-  * client, through the onGetRoot and onLoadChildren methods. It also creates a MediaSession and
-  * exposes it through its MediaSession.Token, which allows the client to create a MediaController
-  * that connects to and send control commands to the MediaSession remotely. This is useful for
+  * client, through the onGetRoot and onLoadChildren methods. It also creates a MediaSessionCompat and
+  * exposes it through its MediaSessionCompat.Token, which allows the client to create a MediaController
+  * that connects to and send control commands to the MediaSessionCompat remotely. This is useful for
   * user interfaces that need to interact with your media session, like Android Auto. You can
   * (should) also use the same service from your app's UI, which gives a seamless playback
   * experience to the user.
@@ -64,20 +66,20 @@ package com.example.android.mediabrowserservice;
   * <li> Extend {@link android.service.media.MediaBrowserService}, implementing the media browsing
   *      related methods {@link android.service.media.MediaBrowserService#onGetRoot} and
   *      {@link android.service.media.MediaBrowserService#onLoadChildren};
-  * <li> In onCreate, start a new {@link android.media.session.MediaSession} and notify its parent
+  * <li> In onCreate, start a new {@link android.media.session.MediaSessionCompat} and notify its parent
   *      with the session's token {@link android.service.media.MediaBrowserService#setSessionToken};
   *
   * <li> Set a callback on the
-  *      {@link android.media.session.MediaSession#setCallback(android.media.session.MediaSession.Callback)}.
+  *      {@link android.media.session.MediaSessionCompat#setCallback(android.media.session.MediaSessionCompat.Callback)}.
   *      The callback will receive all the user's actions, like play, pause, etc;
   *
   * <li> Handle all the actual music playing using any method your app prefers (for example,
   *      {@link android.media.MediaPlayer})
   *
-  * <li> Update playbackState, "now playing" metadata and queue, using MediaSession proper methods
-  *      {@link android.media.session.MediaSession#setPlaybackState(android.media.session.PlaybackState)}
-  *      {@link android.media.session.MediaSession#setMetadata(android.media.MediaMetadata)} and
-  *      {@link android.media.session.MediaSession#setQueue(java.util.List)})
+  * <li> Update playbackState, "now playing" metadata and queue, using MediaSessionCompat proper methods
+  *      {@link android.media.session.MediaSessionCompat#setPlaybackStateCompat(android.media.session.PlaybackStateCompat)}
+  *      {@link android.media.session.MediaSessionCompat#setMetadata(android.media.MediaMetadataCompat)} and
+  *      {@link android.media.session.MediaSessionCompat#setQueue(java.util.List)})
   *
   * <li> Declare and export the service in AndroidManifest with an intent receiver for the action
   *      android.media.browse.MediaBrowserService
@@ -105,7 +107,7 @@ package com.example.android.mediabrowserservice;
   *
   */
 
- public class MusicService extends MediaBrowserService implements Playback.Callback {
+ public class MusicService extends MediaBrowserServiceCompat implements Playback.Callback {
 
      // The action of the incoming Intent indicating that it contains a command
      // to be executed (see {@link #onStartCommand})
@@ -126,9 +128,9 @@ package com.example.android.mediabrowserservice;
 
      // Music catalog manager
      private MusicProvider mMusicProvider;
-     private MediaSession mSession;
+     private MediaSessionCompat mSession;
      // "Now playing" queue:
-     private List<MediaSession.QueueItem> mPlayingQueue;
+     private List<MediaSessionCompat.QueueItem> mPlayingQueue;
      private int mCurrentIndexOnQueue;
      private MediaNotificationManager mMediaNotificationManager;
      // Indicates whether the service was started.
@@ -150,15 +152,15 @@ package com.example.android.mediabrowserservice;
          mMusicProvider = new MusicProvider();
          mPackageValidator = new PackageValidator(this);
 
-         // Start a new MediaSession
-         mSession = new MediaSession(this, "MusicService");
+         // Start a new MediaSessionCompat
+         mSession = new MediaSessionCompat(this, "MusicService");
          setSessionToken(mSession.getSessionToken());
-         mSession.setCallback(new MediaSessionCallback());
-         mSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS |
-             MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
+         mSession.setCallback(new MediaSessionCompatCallback());
+         mSession.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS |
+             MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS);
 
          mPlayback = new Playback(this, mMusicProvider);
-         mPlayback.setState(PlaybackState.STATE_NONE);
+         mPlayback.setState(PlaybackStateCompat.STATE_NONE);
          mPlayback.setCallback(this);
          mPlayback.start();
 
@@ -172,7 +174,7 @@ package com.example.android.mediabrowserservice;
          CarHelper.setSlotReservationFlags(extras, true, true, true);
          mSession.setExtras(extras);
 
-         updatePlaybackState(null);
+         updatePlaybackStateCompat(null);
 
          mMediaNotificationManager = new MediaNotificationManager(this);
      }
@@ -208,7 +210,7 @@ package com.example.android.mediabrowserservice;
          handleStopRequest(null);
 
          mDelayedStopHandler.removeCallbacksAndMessages(null);
-         // Always release the MediaSession to clean up resources
+         // Always release the MediaSessionCompat to clean up resources
          // and notify associated MediaController(s).
          mSession.release();
      }
@@ -236,7 +238,7 @@ package com.example.android.mediabrowserservice;
      }
 
      @Override
-     public void onLoadChildren(final String parentMediaId, final Result<List<MediaItem>> result) {
+     public void onLoadChildren(@NonNull final String parentMediaId, @NonNull final Result<List<MediaBrowserCompat.MediaItem>> result) {
          if (!mMusicProvider.isInitialized()) {
              // Use result.detach to allow calling result.sendResult from another thread:
              result.detach();
@@ -247,7 +249,7 @@ package com.example.android.mediabrowserservice;
                      if (success) {
                          loadChildrenImpl(parentMediaId, result);
                      } else {
-                         updatePlaybackState(getString(R.string.error_no_metadata));
+                         updatePlaybackStateCompat(getString(R.string.error_no_metadata));
                          result.sendResult(Collections.<MediaItem>emptyList());
                      }
                  }
@@ -272,7 +274,7 @@ package com.example.android.mediabrowserservice;
          if (MEDIA_ID_ROOT.equals(parentMediaId)) {
              LogHelper.d(TAG, "OnLoadChildren.ROOT");
              mediaItems.add(new MediaItem(
-                     new MediaDescription.Builder()
+                     new MediaDescriptionCompat.Builder()
                          .setMediaId(MEDIA_ID_MUSICS_BY_GENRE)
                          .setTitle(getString(R.string.browse_genres))
                          .setIconUri(Uri.parse("android.resource://" +
@@ -285,7 +287,7 @@ package com.example.android.mediabrowserservice;
              LogHelper.d(TAG, "OnLoadChildren.GENRES");
              for (String genre : mMusicProvider.getGenres()) {
                  MediaItem item = new MediaItem(
-                     new MediaDescription.Builder()
+                     new MediaDescriptionCompat.Builder()
                          .setMediaId(createBrowseCategoryMediaID(MEDIA_ID_MUSICS_BY_GENRE, genre))
                          .setTitle(genre)
                          .setSubtitle(getString(R.string.browse_musics_by_genre_subtitle, genre))
@@ -297,15 +299,15 @@ package com.example.android.mediabrowserservice;
          } else if (parentMediaId.startsWith(MEDIA_ID_MUSICS_BY_GENRE)) {
              String genre = MediaIDHelper.getHierarchy(parentMediaId)[1];
              LogHelper.d(TAG, "OnLoadChildren.SONGS_BY_GENRE  genre=", genre);
-             for (MediaMetadata track : mMusicProvider.getMusicsByGenre(genre)) {
+             for (MediaMetadataCompat track : mMusicProvider.getMusicsByGenre(genre)) {
                  // Since mediaMetadata fields are immutable, we need to create a copy, so we
                  // can set a hierarchy-aware mediaID. We will need to know the media hierarchy
                  // when we get a onPlayFromMusicID call, so we can create the proper queue based
                  // on where the music was selected from (by artist, by genre, random, etc)
                  String hierarchyAwareMediaID = MediaIDHelper.createMediaID(
                          track.getDescription().getMediaId(), MEDIA_ID_MUSICS_BY_GENRE, genre);
-                 MediaMetadata trackCopy = new MediaMetadata.Builder(track)
-                         .putString(MediaMetadata.METADATA_KEY_MEDIA_ID, hierarchyAwareMediaID)
+                 MediaMetadataCompat trackCopy = new MediaMetadataCompat.Builder(track)
+                         .putString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID, hierarchyAwareMediaID)
                          .build();
                  MediaItem bItem = new MediaItem(
                          trackCopy.getDescription(), MediaItem.FLAG_PLAYABLE);
@@ -319,7 +321,7 @@ package com.example.android.mediabrowserservice;
          result.sendResult(mediaItems);
      }
 
-     private final class MediaSessionCallback extends MediaSession.Callback {
+     private final class MediaSessionCompatCallback extends MediaSessionCompat.Callback {
          @Override
          public void onPlay() {
              LogHelper.d(TAG, "play");
@@ -438,14 +440,14 @@ package com.example.android.mediabrowserservice;
          public void onCustomAction(String action, Bundle extras) {
              if (CUSTOM_ACTION_THUMBS_UP.equals(action)) {
                  LogHelper.i(TAG, "onCustomAction: favorite for current track");
-                 MediaMetadata track = getCurrentPlayingMusic();
+                 MediaMetadataCompat track = getCurrentPlayingMusic();
                  if (track != null) {
-                     String musicId = track.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+                     String musicId = track.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID);
                      mMusicProvider.setFavorite(musicId, !mMusicProvider.isFavorite(musicId));
                  }
                  // playback state needs to be updated because the "Favorite" icon on the
                  // custom action will change to reflect the new favorite state.
-                 updatePlaybackState(null);
+                 updatePlaybackStateCompat(null);
              } else {
                  LogHelper.e(TAG, "Unsupported action: ", action);
              }
@@ -526,7 +528,7 @@ package com.example.android.mediabrowserservice;
          mDelayedStopHandler.removeCallbacksAndMessages(null);
          mDelayedStopHandler.sendEmptyMessageDelayed(0, STOP_DELAY);
 
-         updatePlaybackState(withError);
+         updatePlaybackStateCompat(withError);
 
          // service is no longer necessary. Will be started again if needed.
          stopSelf();
@@ -536,14 +538,14 @@ package com.example.android.mediabrowserservice;
      private void updateMetadata() {
          if (!QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
              LogHelper.e(TAG, "Can't retrieve current metadata.");
-             updatePlaybackState(getResources().getString(R.string.error_no_metadata));
+             updatePlaybackStateCompat(getResources().getString(R.string.error_no_metadata));
              return;
          }
-         MediaSession.QueueItem queueItem = mPlayingQueue.get(mCurrentIndexOnQueue);
+         MediaSessionCompat.QueueItem queueItem = mPlayingQueue.get(mCurrentIndexOnQueue);
          String musicId = MediaIDHelper.extractMusicIDFromMediaID(
                  queueItem.getDescription().getMediaId());
-         MediaMetadata track = mMusicProvider.getMusic(musicId);
-         final String trackId = track.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+         MediaMetadataCompat track = mMusicProvider.getMusic(musicId);
+         final String trackId = track.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID);
          if (!musicId.equals(trackId)) {
              IllegalStateException e = new IllegalStateException("track ID should match musicId.");
              LogHelper.e(TAG, "track ID should match musicId.",
@@ -568,18 +570,18 @@ package com.example.android.mediabrowserservice;
              AlbumArtCache.getInstance().fetch(albumUri, new AlbumArtCache.FetchListener() {
                  @Override
                  public void onFetched(String artUrl, Bitmap bitmap, Bitmap icon) {
-                     MediaSession.QueueItem queueItem = mPlayingQueue.get(mCurrentIndexOnQueue);
-                     MediaMetadata track = mMusicProvider.getMusic(trackId);
-                     track = new MediaMetadata.Builder(track)
+                     MediaSessionCompat.QueueItem queueItem = mPlayingQueue.get(mCurrentIndexOnQueue);
+                     MediaMetadataCompat track = mMusicProvider.getMusic(trackId);
+                     track = new MediaMetadataCompat.Builder(track)
 
                          // set high resolution bitmap in METADATA_KEY_ALBUM_ART. This is used, for
                          // example, on the lockscreen background when the media session is active.
-                         .putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bitmap)
+                         .putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, bitmap)
 
                          // set small version of the album art in the DISPLAY_ICON. This is used on
-                         // the MediaDescription and thus it should be small to be serialized if
+                         // the MediaDescriptionCompat and thus it should be small to be serialized if
                          // necessary..
-                         .putBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON, icon)
+                         .putBitmap(MediaMetadataCompat.METADATA_KEY_DISPLAY_ICON, icon)
 
                          .build();
 
@@ -601,14 +603,14 @@ package com.example.android.mediabrowserservice;
       *
       * @param error if not null, error message to present to the user.
       */
-     private void updatePlaybackState(String error) {
-         LogHelper.d(TAG, "updatePlaybackState, playback state=" + mPlayback.getState());
-         long position = PlaybackState.PLAYBACK_POSITION_UNKNOWN;
+     private void updatePlaybackStateCompat(String error) {
+         LogHelper.d(TAG, "updatePlaybackStateCompat, playback state=" + mPlayback.getState());
+         long position = PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN;
          if (mPlayback != null && mPlayback.isConnected()) {
              position = mPlayback.getCurrentStreamPosition();
          }
 
-         PlaybackState.Builder stateBuilder = new PlaybackState.Builder()
+         PlaybackStateCompat.Builder stateBuilder = new PlaybackStateCompat.Builder()
                  .setActions(getAvailableActions());
 
          setCustomAction(stateBuilder);
@@ -619,33 +621,33 @@ package com.example.android.mediabrowserservice;
              // Error states are really only supposed to be used for errors that cause playback to
              // stop unexpectedly and persist until the user takes action to fix it.
              stateBuilder.setErrorMessage(error);
-             state = PlaybackState.STATE_ERROR;
+             state = PlaybackStateCompat.STATE_ERROR;
          }
          stateBuilder.setState(state, position, 1.0f, SystemClock.elapsedRealtime());
 
          // Set the activeQueueItemId if the current index is valid.
          if (QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
-             MediaSession.QueueItem item = mPlayingQueue.get(mCurrentIndexOnQueue);
+             MediaSessionCompat.QueueItem item = mPlayingQueue.get(mCurrentIndexOnQueue);
              stateBuilder.setActiveQueueItemId(item.getQueueId());
          }
 
          mSession.setPlaybackState(stateBuilder.build());
 
-         if (state == PlaybackState.STATE_PLAYING || state == PlaybackState.STATE_PAUSED) {
+         if (state == PlaybackStateCompat.STATE_PLAYING || state == PlaybackStateCompat.STATE_PAUSED) {
              mMediaNotificationManager.startNotification();
          }
      }
 
-     private void setCustomAction(PlaybackState.Builder stateBuilder) {
-         MediaMetadata currentMusic = getCurrentPlayingMusic();
+     private void setCustomAction(PlaybackStateCompat.Builder stateBuilder) {
+         MediaMetadataCompat currentMusic = getCurrentPlayingMusic();
          if (currentMusic != null) {
              // Set appropriate "Favorite" icon on Custom action:
-             String musicId = currentMusic.getString(MediaMetadata.METADATA_KEY_MEDIA_ID);
+             String musicId = currentMusic.getString(MediaMetadataCompat.METADATA_KEY_MEDIA_ID);
              int favoriteIcon = R.drawable.ic_star_off;
              if (mMusicProvider.isFavorite(musicId)) {
                  favoriteIcon = R.drawable.ic_star_on;
              }
-             LogHelper.d(TAG, "updatePlaybackState, setting Favorite custom action of music ",
+             LogHelper.d(TAG, "updatePlaybackStateCompat, setting Favorite custom action of music ",
                      musicId, " current favorite=", mMusicProvider.isFavorite(musicId));
              stateBuilder.addCustomAction(CUSTOM_ACTION_THUMBS_UP, getString(R.string.favorite),
                  favoriteIcon);
@@ -653,26 +655,26 @@ package com.example.android.mediabrowserservice;
      }
 
      private long getAvailableActions() {
-         long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PLAY_FROM_MEDIA_ID |
-                 PlaybackState.ACTION_PLAY_FROM_SEARCH;
+         long actions = PlaybackStateCompat.ACTION_PLAY | PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID |
+                 PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH;
          if (mPlayingQueue == null || mPlayingQueue.isEmpty()) {
              return actions;
          }
          if (mPlayback.isPlaying()) {
-             actions |= PlaybackState.ACTION_PAUSE;
+             actions |= PlaybackStateCompat.ACTION_PAUSE;
          }
          if (mCurrentIndexOnQueue > 0) {
-             actions |= PlaybackState.ACTION_SKIP_TO_PREVIOUS;
+             actions |= PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS;
          }
          if (mCurrentIndexOnQueue < mPlayingQueue.size() - 1) {
-             actions |= PlaybackState.ACTION_SKIP_TO_NEXT;
+             actions |= PlaybackStateCompat.ACTION_SKIP_TO_NEXT;
          }
          return actions;
      }
 
-     private MediaMetadata getCurrentPlayingMusic() {
+     private MediaMetadataCompat getCurrentPlayingMusic() {
          if (QueueHelper.isIndexPlayable(mCurrentIndexOnQueue, mPlayingQueue)) {
-             MediaSession.QueueItem item = mPlayingQueue.get(mCurrentIndexOnQueue);
+             MediaSessionCompat.QueueItem item = mPlayingQueue.get(mCurrentIndexOnQueue);
              if (item != null) {
                  LogHelper.d(TAG, "getCurrentPlayingMusic for musicId=",
                          item.getDescription().getMediaId());
@@ -705,12 +707,12 @@ package com.example.android.mediabrowserservice;
 
      @Override
      public void onPlaybackStatusChanged(int state) {
-         updatePlaybackState(null);
+         updatePlaybackStateCompat(null);
      }
 
      @Override
      public void onError(String error) {
-         updatePlaybackState(error);
+         updatePlaybackStateCompat(error);
      }
 
      /**

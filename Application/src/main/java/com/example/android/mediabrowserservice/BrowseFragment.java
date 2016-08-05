@@ -15,11 +15,12 @@
  */
 package com.example.android.mediabrowserservice;
 
-import android.app.Fragment;
 import android.content.ComponentName;
 import android.content.Context;
-import android.media.browse.MediaBrowser;
-import android.media.session.MediaController;
+import android.os.RemoteException;
+import android.support.v4.app.Fragment;
+import android.support.v4.media.MediaBrowserCompat;
+import android.support.v4.media.session.MediaControllerCompat;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -39,10 +40,10 @@ import java.util.List;
 
 /**
  * A Fragment that lists all the various browsable queues available
- * from a {@link android.service.media.MediaBrowserService}.
+ * from a {@link android.service.media.MediaBrowserCompatService}.
  * <p/>
- * It uses a {@link MediaBrowser} to connect to the {@link MusicService}. Once connected,
- * the fragment subscribes to get all the children. All {@link MediaBrowser.MediaItem}'s
+ * It uses a {@link MediaBrowserCompat} to connect to the {@link MusicService}. Once connected,
+ * the fragment subscribes to get all the children. All {@link MediaBrowserCompat.MediaItem}'s
  * that can be browsed are shown in a ListView.
  */
 public class BrowseFragment extends Fragment {
@@ -52,22 +53,22 @@ public class BrowseFragment extends Fragment {
     public static final String ARG_MEDIA_ID = "media_id";
 
     public static interface FragmentDataHelper {
-        void onMediaItemSelected(MediaBrowser.MediaItem item);
+        void onMediaItemSelected(MediaBrowserCompat.MediaItem item);
     }
 
-    // The mediaId to be used for subscribing for children using the MediaBrowser.
+    // The mediaId to be used for subscribing for children using the MediaBrowserCompat.
     private String mMediaId;
 
-    private MediaBrowser mMediaBrowser;
+    private MediaBrowserCompat mMediaBrowserCompat;
     private BrowseAdapter mBrowserAdapter;
 
-    private MediaBrowser.SubscriptionCallback mSubscriptionCallback = new MediaBrowser.SubscriptionCallback() {
+    private MediaBrowserCompat.SubscriptionCallback mSubscriptionCallback = new MediaBrowserCompat.SubscriptionCallback() {
 
         @Override
-        public void onChildrenLoaded(String parentId, List<MediaBrowser.MediaItem> children) {
+        public void onChildrenLoaded(String parentId, List<MediaBrowserCompat.MediaItem> children) {
             mBrowserAdapter.clear();
             mBrowserAdapter.notifyDataSetInvalidated();
-            for (MediaBrowser.MediaItem item : children) {
+            for (MediaBrowserCompat.MediaItem item : children) {
                 mBrowserAdapter.add(item);
             }
             mBrowserAdapter.notifyDataSetChanged();
@@ -80,22 +81,26 @@ public class BrowseFragment extends Fragment {
         }
     };
 
-    private MediaBrowser.ConnectionCallback mConnectionCallback =
-            new MediaBrowser.ConnectionCallback() {
+    private MediaBrowserCompat.ConnectionCallback mConnectionCallback =
+            new MediaBrowserCompat.ConnectionCallback() {
         @Override
         public void onConnected() {
-            LogHelper.d(TAG, "onConnected: session token " + mMediaBrowser.getSessionToken());
+            LogHelper.d(TAG, "onConnected: session token " + mMediaBrowserCompat.getSessionToken());
 
             if (mMediaId == null) {
-                mMediaId = mMediaBrowser.getRoot();
+                mMediaId = mMediaBrowserCompat.getRoot();
             }
-            mMediaBrowser.subscribe(mMediaId, mSubscriptionCallback);
-            if (mMediaBrowser.getSessionToken() == null) {
+            mMediaBrowserCompat.subscribe(mMediaId, mSubscriptionCallback);
+            if (mMediaBrowserCompat.getSessionToken() == null) {
                 throw new IllegalArgumentException("No Session token");
             }
-            MediaController mediaController = new MediaController(getActivity(),
-                    mMediaBrowser.getSessionToken());
-            getActivity().setMediaController(mediaController);
+            try {
+                MediaControllerCompat mediaController = new MediaControllerCompat(getActivity(),
+                        mMediaBrowserCompat.getSessionToken());
+                getActivity().setSupportMediaController(mediaController);
+            }catch (RemoteException e){
+                e.printStackTrace();
+            }
         }
 
         @Override
@@ -133,7 +138,7 @@ public class BrowseFragment extends Fragment {
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                MediaBrowser.MediaItem item = mBrowserAdapter.getItem(position);
+                MediaBrowserCompat.MediaItem item = mBrowserAdapter.getItem(position);
                 try {
                     FragmentDataHelper listener = (FragmentDataHelper) getActivity();
                     listener.onMediaItemSelected(item);
@@ -146,7 +151,7 @@ public class BrowseFragment extends Fragment {
         Bundle args = getArguments();
         mMediaId = args.getString(ARG_MEDIA_ID, null);
 
-        mMediaBrowser = new MediaBrowser(getActivity(),
+        mMediaBrowserCompat = new MediaBrowserCompat(getActivity(),
                 new ComponentName(getActivity(), MusicService.class),
                 mConnectionCallback, null);
 
@@ -156,20 +161,20 @@ public class BrowseFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        mMediaBrowser.connect();
+        mMediaBrowserCompat.connect();
     }
 
     @Override
     public void onStop() {
         super.onStop();
-        mMediaBrowser.disconnect();
+        mMediaBrowserCompat.disconnect();
     }
 
     // An adapter for showing the list of browsed MediaItem's
-    private static class BrowseAdapter extends ArrayAdapter<MediaBrowser.MediaItem> {
+    private static class BrowseAdapter extends ArrayAdapter<MediaBrowserCompat.MediaItem> {
 
         public BrowseAdapter(Context context) {
-            super(context, R.layout.media_list_item, new ArrayList<MediaBrowser.MediaItem>());
+            super(context, R.layout.media_list_item, new ArrayList<MediaBrowserCompat.MediaItem>());
         }
 
         static class ViewHolder {
@@ -196,7 +201,7 @@ public class BrowseFragment extends Fragment {
                 holder = (ViewHolder) convertView.getTag();
             }
 
-            MediaBrowser.MediaItem item = getItem(position);
+            MediaBrowserCompat.MediaItem item = getItem(position);
             holder.mTitleView.setText(item.getDescription().getTitle());
             holder.mDescriptionView.setText(item.getDescription().getDescription());
             if (item.isPlayable()) {
